@@ -200,12 +200,17 @@ export class BrowserManager {
       console.log(`[browse] Extensions loaded from: ${extensionsDir}`);
     }
 
+    // Chromium refuses to launch as root with the sandbox enabled (errors
+    // with "Running as root without --no-sandbox is not supported"). Detect
+    // uid 0 and disable the sandbox so containerized hosts like Claude Code
+    // on the web work without manual flags.
+    const isRoot = process.platform !== 'win32' && typeof process.getuid === 'function' && process.getuid() === 0;
     this.browser = await chromium.launch({
       headless: useHeadless,
       // On Windows, Chromium's sandbox fails when the server is spawned through
       // the Bun→Node process chain (GitHub #276). Disable it — local daemon
       // browsing user-specified URLs has marginal sandbox benefit.
-      chromiumSandbox: process.platform !== 'win32',
+      chromiumSandbox: process.platform !== 'win32' && !isRoot,
       ...(launchArgs.length > 0 ? { args: launchArgs } : {}),
     });
 
